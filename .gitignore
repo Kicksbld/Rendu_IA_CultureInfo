@@ -15,12 +15,6 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
 # Debug
 node_modules/.cache/
 
