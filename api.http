@@ -1,0 +1,181 @@
+# ==============================================================================
+# Fichier de test pour l'API REST avec Basic Auth
+# Utiliser avec l'extension "REST Client" de VS Code
+# ==============================================================================
+
+# Variable pour l'URL de base - facile a changer pour differents environnements
+@baseUrl = http://localhost:3000
+
+# Identifiants Basic Auth encodes en Base64
+# "admin:secret123" -> Base64 -> "YWRtaW46c2VjcmV0MTIz"
+@validAuth = Basic YWRtaW46c2VjcmV0MTIz
+@invalidAuth = Basic aW52YWxpZDppbnZhbGlk
+
+# ==============================================================================
+# TEST 1: Route racine (sans authentification)
+# Cette route ne necessite pas d'auth, elle doit toujours fonctionner
+# ==============================================================================
+### Test route racine - doit retourner 200
+GET {{baseUrl}}/
+
+> {%
+    client.test("Route racine - Status 200", function() {
+        client.assert(response.status === 200, "Le status devrait etre 200");
+    });
+
+    client.test("Route racine - Contient le message", function() {
+        client.assert(response.body.message !== undefined, "La reponse devrait contenir un message");
+    });
+%}
+
+# ==============================================================================
+# TEST 2: GET /api/data avec authentification valide
+# Teste que la route renvoie bien les query params en JSON
+# ==============================================================================
+### Test GET avec auth valide et query params
+GET {{baseUrl}}/api/data?name=John&age=25&city=Paris
+Authorization: {{validAuth}}
+
+> {%
+    client.test("GET /api/data - Status 200 avec auth valide", function() {
+        client.assert(response.status === 200, "Le status devrait etre 200");
+    });
+
+    client.test("GET /api/data - Contient queryParams", function() {
+        client.assert(response.body.queryParams !== undefined, "La reponse devrait contenir queryParams");
+    });
+
+    client.test("GET /api/data - Query params corrects", function() {
+        client.assert(response.body.queryParams.name === "John", "name devrait etre John");
+        client.assert(response.body.queryParams.age === "25", "age devrait etre 25");
+        client.assert(response.body.queryParams.city === "Paris", "city devrait etre Paris");
+    });
+%}
+
+# ==============================================================================
+# TEST 3: POST /api/data avec authentification valide
+# Teste que la route renvoie bien le body JSON
+# ==============================================================================
+### Test POST avec auth valide et body JSON
+POST {{baseUrl}}/api/data
+Authorization: {{validAuth}}
+Content-Type: application/json
+
+{
+    "firstname": "Marie",
+    "lastname": "Dupont",
+    "email": "marie.dupont@example.com",
+    "roles": ["admin", "user"]
+}
+
+> {%
+    client.test("POST /api/data - Status 200 avec auth valide", function() {
+        client.assert(response.status === 200, "Le status devrait etre 200");
+    });
+
+    client.test("POST /api/data - Contient body", function() {
+        client.assert(response.body.body !== undefined, "La reponse devrait contenir body");
+    });
+
+    client.test("POST /api/data - Body correct", function() {
+        client.assert(response.body.body.firstname === "Marie", "firstname devrait etre Marie");
+        client.assert(response.body.body.lastname === "Dupont", "lastname devrait etre Dupont");
+        client.assert(response.body.body.email === "marie.dupont@example.com", "email devrait etre correct");
+    });
+
+    client.test("POST /api/data - Tableau roles correct", function() {
+        client.assert(Array.isArray(response.body.body.roles), "roles devrait etre un tableau");
+        client.assert(response.body.body.roles.length === 2, "roles devrait avoir 2 elements");
+    });
+%}
+
+# ==============================================================================
+# TEST 4: GET /api/data SANS authentification -> doit retourner 401
+# Teste que l'API refuse l'acces sans credentials
+# ==============================================================================
+### Test GET sans auth - doit retourner 401
+GET {{baseUrl}}/api/data?test=value
+
+> {%
+    client.test("GET sans auth - Status 401", function() {
+        client.assert(response.status === 401, "Le status devrait etre 401 Unauthorized");
+    });
+
+    client.test("GET sans auth - Message d'erreur", function() {
+        client.assert(response.body.error !== undefined, "La reponse devrait contenir une erreur");
+    });
+%}
+
+# ==============================================================================
+# TEST 5: GET /api/data avec authentification INVALIDE -> doit retourner 401
+# Teste que l'API refuse les mauvais credentials
+# ==============================================================================
+### Test GET avec auth invalide - doit retourner 401
+GET {{baseUrl}}/api/data?test=value
+Authorization: {{invalidAuth}}
+
+> {%
+    client.test("GET avec auth invalide - Status 401", function() {
+        client.assert(response.status === 401, "Le status devrait etre 401 Unauthorized");
+    });
+
+    client.test("GET avec auth invalide - Message identifiants invalides", function() {
+        client.assert(response.body.error === "Identifiants invalides", "L'erreur devrait indiquer identifiants invalides");
+    });
+%}
+
+# ==============================================================================
+# TEST 6: POST /api/data SANS authentification -> doit retourner 401
+# ==============================================================================
+### Test POST sans auth - doit retourner 401
+POST {{baseUrl}}/api/data
+Content-Type: application/json
+
+{
+    "data": "test"
+}
+
+> {%
+    client.test("POST sans auth - Status 401", function() {
+        client.assert(response.status === 401, "Le status devrait etre 401 Unauthorized");
+    });
+%}
+
+# ==============================================================================
+# TEST 7: GET /api/data avec query string vide
+# Teste que la route fonctionne meme sans params
+# ==============================================================================
+### Test GET avec auth mais sans query params
+GET {{baseUrl}}/api/data
+Authorization: {{validAuth}}
+
+> {%
+    client.test("GET sans params - Status 200", function() {
+        client.assert(response.status === 200, "Le status devrait etre 200");
+    });
+
+    client.test("GET sans params - queryParams vide", function() {
+        client.assert(Object.keys(response.body.queryParams).length === 0, "queryParams devrait etre vide");
+    });
+%}
+
+# ==============================================================================
+# TEST 8: POST /api/data avec body vide
+# Teste que la route fonctionne meme sans body
+# ==============================================================================
+### Test POST avec auth mais body vide
+POST {{baseUrl}}/api/data
+Authorization: {{validAuth}}
+Content-Type: application/json
+
+{}
+
+> {%
+    client.test("POST body vide - Status 200", function() {
+        client.assert(response.status === 200, "Le status devrait etre 200");
+    });
+
+    client.test("POST body vide - body vide dans reponse", function() {
+        client.assert(Object.keys(response.body.body).length === 0, "body devrait etre vide");
+    });
+%}
